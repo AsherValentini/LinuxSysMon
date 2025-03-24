@@ -5,6 +5,66 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <mutex>
+#include <memory>
+#include <atomic>
+#include <map>
+
+
+using namespace std; 
+
+class IMemoryDataObserver {
+    public: 
+        virtual ~IMemoryDataObserver() = default; 
+        virtual void update(const vector<long long>& memoryStats)=0;
+}; 
+
+
+class MemoryDataCollector {
+    public:
+        void registerObserver(const shared_ptr<IMemoryDataObserver>& observer){
+            lock_guard<mutex> lock(observerMutex_); 
+            observers_.push_back(observer); 
+        }
+
+        void run(){
+            try{
+                while(!stopFlag_){
+                    map<string, long long> stats = collect
+                }
+            }
+
+        }
+
+        void stop(){
+            stopFlag_ = true; 
+        }
+
+    private: 
+        map<string, long long> collectData(){
+            ifstream memInfoFile("/proc/meminfo"); 
+            if(!memInfoFile.is_open()){
+                throw runtime_error("Unable to open /proc/meminfo"); 
+            }
+
+            map<string, long long> memoryStatsMap; 
+            string line; 
+            while(getline(memInfoFile, line)){
+                istringstream iss(line); 
+                string label; 
+                long long value; 
+                iss >> label >> value; 
+                memoryStatsMap[label] = value; 
+            }
+
+            return memoryStatsMap; 
+        }
+        
+        mutex observerMutex_;
+        vector<shared_ptr<IMemoryDataObserver>> observers_; 
+        atomic<bool> stopFlag_{false}; 
+};
+
 
 
 using namespace std;
@@ -19,20 +79,19 @@ int main(){
         throw runtime_error("Unable to open /proc/meminfo");
     }
 
-    // Read the first line in the proc/meminfo file (total memory).
-    string line; 
-    if(!getline(memInfoFile, line)){
-        throw runtime_error("Unable to read from /proc/meminfo");
+    map<string, long long> memoryStatsMap;
+    string line;
+    while (getline(memInfoFile, line)) {
+        istringstream iss(line);
+        string label;
+        long long value;
+        iss >> label >> value;
+        memoryStatsMap[label]=value;
     }
 
-    // Parse the line to get the total memory. 
-    istringstream iss(line); 
-    string label; 
-    iss >> label; // first word in the line will be the label which is not relevant 
-    long long totalMemory; 
-    iss >> totalMemory; 
-
-    cout << totalMemory << endl;
+    for(auto entry:memoryStatsMap){
+        cout << entry.first << " " << entry.second << endl; 
+    }
 
     return 0; 
 }

@@ -13,16 +13,16 @@
 using namespace std;  // For removing the need to write std:: (not best practice, but this is not a pruduction project)
 
 // Observer/Subject interface for receiving new CPU data 
-class IObserver {
+class ICPUDataObserver {
     public: 
-        virtual ~IObserver() = default; 
+        virtual ~ICPUDataObserver() = default; 
         virtual void update(const vector<long long>& cpuStats)=0;
 }; 
 
 // Subect DataCollector module for reading /proc/stat 
-class DataCollector {
+class CPUDataCollector {
     public:
-        void registerObserver(const shared_ptr<IObserver>& observer){
+        void registerObserver(const shared_ptr<ICPUDataObserver>& observer){
             lock_guard<mutex> lock(observerMutex_); 
             observers_.push_back(observer); 
         }
@@ -84,13 +84,13 @@ class DataCollector {
             }
         }
 
-        vector<shared_ptr<IObserver>> observers_; 
+        vector<shared_ptr<ICPUDataObserver>> observers_; 
         mutex observerMutex_; 
         atomic<bool> stopFlag_{false};
 
 };
 
-class DataProcessor : public IObserver {
+class CPUDataProcessor : public ICPUDataObserver {
     public: 
         // Observer update method.
         void update(const vector<long long>& cpuStats) override {
@@ -126,14 +126,14 @@ class DataProcessor : public IObserver {
 
 int main(){
     // Create the DataCollector (Subject) and DataProcessor (Observer) modules.
-    auto collector = make_shared<DataCollector>(); 
-    auto processor = make_shared<DataProcessor>(); 
+    auto collector = make_shared<CPUDataCollector>(); 
+    auto processor = make_shared<CPUDataProcessor>(); 
 
     // Register the DataProcessor as an oberser. 
     collector->registerObserver(processor); 
 
     // Run the DataProcessor as an observer. 
-    thread collectorThread(&DataCollector::run, collector); 
+    thread collectorThread(&CPUDataCollector::run, collector); 
 
     //Sumulate a run program run time of 10 seconds. 
     this_thread::sleep_for(chrono::seconds(10)); 
