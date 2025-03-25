@@ -14,113 +14,113 @@ using namespace std;  // For removing the need to write std:: (not best practice
 
 // Observer/Subject interface for receiving new CPU data 
 class ICPUDataObserver {
-    public: 
-        virtual ~ICPUDataObserver() = default; 
-        virtual void update(const vector<long long>& cpuStats)=0;
+public: 
+    virtual ~ICPUDataObserver() = default; 
+    virtual void update(const vector<long long>& cpuStats)=0;
 }; 
 
 // Subect DataCollector module for reading /proc/stat 
 class CPUDataCollector {
-    public:
-        void registerObserver(const shared_ptr<ICPUDataObserver>& observer){
-            lock_guard<mutex> lock(observerMutex_); 
-            observers_.push_back(observer); 
+public:
+    void registerObserver(const shared_ptr<ICPUDataObserver>& observer){
+        lock_guard<mutex> lock(observerMutex_); 
+        observers_.push_back(observer); 
+    }
+
+    // Run the data collection loop 
+    void run(){
+        try{
+            while(!stopFlag_){
+                vector<long long> stats = collectData(); 
+                notifyObservers(stats);
+                this_thread::sleep_for(chrono::seconds(1)); // Sample every second
+
+            }
+        }catch (const exception &ex){
+            cerr << "DataCollector error: " << ex.what() << endl; 
+        }
+    }
+
+    void stop(){
+        stopFlag_ = true; 
+    }
+
+private:
+    vector<long long> collectData(){
+
+        // Open the proc stat file.
+        ifstream statFile("/proc/stat"); 
+        if(!statFile.is_open()){
+
+            throw runtime_error("Unable to open /proc/stat"); 
+        }
+        
+        string line; 
+
+        // Read the first line in the proc stat file (CPU statistics).
+        if(!getline(statFile, line)){
+            throw runtime_error("Unable to read from /proc/stat"); 
         }
 
-        // Run the data collection loop 
-        void run(){
-            try{
-                while(!stopFlag_){
-                    vector<long long> stats = collectData(); 
-                    notifyObservers(stats);
-                    this_thread::sleep_for(chrono::seconds(1)); // Sample every second
+        // Parse the line to get the individual CPU statistics 
+        istringstream iss(line); // use stringstream to be able to parse numbers seperated by " "
+        string cpuLabel;
+        iss >> cpuLabel; // first word in line will be the cpu label which is not relavent
 
-                }
-            }catch (const exception &ex){
-                cerr << "DataCollector error: " << ex.what() << endl; 
-            }
+        vector<long long>cpuStats{istream_iterator<long long>(iss), istream_iterator<long long>()}; 
+
+        if(cpuStats.size()<4){
+            throw runtime_error("Unexpected format in /proc/stat"); 
         }
 
-        void stop(){
-            stopFlag_ = true; 
+        return cpuStats; 
+    }
+
+    // Notifies all registered observers with new data. 
+    void notifyObservers(const vector<long long> stats){
+        lock_guard<mutex> lock(observerMutex_); 
+        for(auto& observer:observers_){
+            observer->update(stats); 
         }
+    }
 
-    private:
-        vector<long long> collectData(){
-
-            // Open the proc stat file.
-            ifstream statFile("/proc/stat"); 
-            if(!statFile.is_open()){
-
-                throw runtime_error("Unable to open /proc/stat"); 
-            }
-            
-            string line; 
-
-            // Read the first line in the proc stat file (CPU statistics).
-            if(!getline(statFile, line)){
-                throw runtime_error("Unable to read from /proc/stat"); 
-            }
-
-            // Parse the line to get the individual CPU statistics 
-            istringstream iss(line); // use stringstream to be able to parse numbers seperated by " "
-            string cpuLabel;
-            iss >> cpuLabel; // first word in line will be the cpu label which is not relavent
-
-            vector<long long>cpuStats{istream_iterator<long long>(iss), istream_iterator<long long>()}; 
-
-            if(cpuStats.size()<4){
-                throw runtime_error("Unexpected format in /proc/stat"); 
-            }
-
-            return cpuStats; 
-        }
-
-        // Notifies all registered observers with new data. 
-        void notifyObservers(const vector<long long> stats){
-            lock_guard<mutex> lock(observerMutex_); 
-            for(auto& observer:observers_){
-                observer->update(stats); 
-            }
-        }
-
-        vector<shared_ptr<ICPUDataObserver>> observers_; 
-        mutex observerMutex_; 
-        atomic<bool> stopFlag_{false};
+    vector<shared_ptr<ICPUDataObserver>> observers_; 
+    mutex observerMutex_; 
+    atomic<bool> stopFlag_{false};
 
 };
 
 class CPUDataProcessor : public ICPUDataObserver {
-    public: 
-        // Observer update method.
-        void update(const vector<long long>& cpuStats) override {
-            long long totalJiffies = 0; 
-            for (auto stat:cpuStats){
-                totalJiffies += stat; 
-            }
-        
-            // Fourth value in /proc/stat represents idle time. 
-            long long idleJiffies = cpuStats[3]; 
-
-            // On the first run, store the values 
-            if (prevTotalJiffies_ != 0) {
-                long long deltaTotal = totalJiffies - prevTotalJiffies_; 
-                long long deltaIdle = idleJiffies -prevIdleJiffies_; 
-                double cpuUsage = 100.0 * (1.0 - (deltaIdle / static_cast<double>(deltaTotal))); 
-                {
-                    lock_guard<mutex> lock(outputMutex_); 
-                    cout << "CPU Usage: " << cpuUsage << "%" << endl; 
-                }
-            }
-
-            prevTotalJiffies_ = totalJiffies; 
-            prevIdleJiffies_= idleJiffies;  
+public: 
+    // Observer update method.
+    void update(const vector<long long>& cpuStats) override {
+        long long totalJiffies = 0; 
+        for (auto stat:cpuStats){
+            totalJiffies += stat; 
         }
     
-    private: 
-        long long prevTotalJiffies_{0}; 
-        long long prevIdleJiffies_{0}; 
-        mutex outputMutex_; 
+        // Fourth value in /proc/stat represents idle time. 
+        long long idleJiffies = cpuStats[3]; 
+
+        // On the first run, store the values 
+        if (prevTotalJiffies_ != 0) {
+            long long deltaTotal = totalJiffies - prevTotalJiffies_; 
+            long long deltaIdle = idleJiffies -prevIdleJiffies_; 
+            double cpuUsage = 100.0 * (1.0 - (deltaIdle / static_cast<double>(deltaTotal))); 
+            {
+                lock_guard<mutex> lock(outputMutex_); 
+                cout << "CPU Usage: " << cpuUsage << "%" << endl; 
+            }
+        }
+
+        prevTotalJiffies_ = totalJiffies; 
+        prevIdleJiffies_= idleJiffies;  
+    }
+
+private: 
+    long long prevTotalJiffies_{0}; 
+    long long prevIdleJiffies_{0}; 
+    mutex outputMutex_; 
 
 };
 
