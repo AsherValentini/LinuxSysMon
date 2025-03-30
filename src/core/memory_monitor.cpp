@@ -82,6 +82,10 @@ private:
 class MemoryDataProcessor : public IMemoryDataObserver {
 public: 
     void update(const map<string, long long>& memoryStats) override {
+
+        // Process just the MemTotal, MemAvailable and SwapTotal and SwapFree fields. 
+        auto usedMemory = memoryStats.at("MemTotal:")-memoryStats.at("MemAvailable:"); 
+        cout << "Used Memory: " << usedMemory << endl; 
         cout << "Memory Statistics" << endl; 
 
         for(auto entry:memoryStats){
