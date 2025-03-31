@@ -84,13 +84,14 @@ public:
     void update(const map<string, long long>& memoryStats) override {
 
         // Process just the MemTotal, MemAvailable and SwapTotal and SwapFree fields. 
-        auto usedMemory = memoryStats.at("MemTotal:")-memoryStats.at("MemAvailable:"); 
+        long long usedMemory = memoryStats.at("MemTotal:")-memoryStats.at("MemAvailable:"); 
+        long long swapUsed = memoryStats.at("SwapTotal:")-memoryStats.at("SwapFree:"); 
         cout << "Used Memory: " << usedMemory << endl; 
         cout << "Memory Statistics" << endl; 
 
         for(auto entry:memoryStats){
             lock_guard<mutex> lock(outputMutex_); 
-            cout << entry.first << " " << entry.second << endl; // currently does not prevent race conidtion need to use global mutex
+            cout << entry.first << " " << entry.second << endl; // currently does not prevent race conidtion need to use global mutex when it comes to console printing
         }
     }
 private: 
