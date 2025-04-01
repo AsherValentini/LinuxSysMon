@@ -85,14 +85,12 @@ public:
 
         // Process just the MemTotal, MemAvailable and SwapTotal and SwapFree fields. 
         long long usedMemory = memoryStats.at("MemTotal:")-memoryStats.at("MemAvailable:"); 
+        usedMemory = usedMemory/102400; // Convert to GB (figure out the actual value)
         long long swapUsed = memoryStats.at("SwapTotal:")-memoryStats.at("SwapFree:"); 
-        cout << "Used Memory: " << usedMemory << endl; 
-        cout << "Memory Statistics" << endl; 
+        lock_guard<mutex> lock(outputMutex_); 
+        cout << "Used Memory: " << usedMemory << " GB" << endl; 
+        cout << "Usesd Swap: " << swapUsed << endl; 
 
-        for(auto entry:memoryStats){
-            lock_guard<mutex> lock(outputMutex_); 
-            cout << entry.first << " " << entry.second << endl; // currently does not prevent race conidtion need to use global mutex when it comes to console printing
-        }
     }
 private: 
     mutex outputMutex_; 
