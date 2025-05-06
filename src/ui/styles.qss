@@ -1,5 +1,10 @@
 QMainWindow {
-    background-color: #1e1e1e;
+    background-color: #302f2f;
     color: white
+}
+
+GaugeWidget {
+    background-color: #1e1e1e;
+    border-radius: 10px;
 }
 
