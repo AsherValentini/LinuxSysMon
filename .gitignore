@@ -18,4 +18,40 @@ Makefile
 # Backup and temporary files 
 *~
 *.swp
-*.tmp
+*.tmp# === C++ build artifacts ===
+build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# === Executables and object files ===
+*.o
+*.obj
+*.so
+*.a
+*.out
+*.exe
+
+# === Python virtual environment ===
+venv/
+.env/
+.venv/
+
+# === Python bytecode ===
+__pycache__/
+*.pyc
+*.pyo
+
+# === Logs and user files ===
+*.log
+*.swp
+*.swo
+.DS_Store
+
+# === Qt Designer / PyQt user settings ===
+*.user
+
+# === VS Code settings (optional) ===
+.vscode/
+
